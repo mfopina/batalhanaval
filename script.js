@@ -1,330 +1,105 @@
-import { db } from "./firebase.js";
-
-import {
-    doc,
-    setDoc,
-    getDoc,
-    updateDoc,
-    onSnapshot
-} from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-
-// =========================
-// ELEMENTOS
-// =========================
-
-const homeScreen = document.getElementById("homeScreen");
-const roomScreen = document.getElementById("roomScreen");
-const gameScreen = document.getElementById("gameScreen");
-
-const btnCreateRoom = document.getElementById("btnCreateRoom");
-const btnJoinRoom = document.getElementById("btnJoinRoom");
-const btnCopyLink = document.getElementById("btnCopyLink");
-
-const roomCodeInput = document.getElementById("roomCode");
-
-const roomIdLabel = document.getElementById("roomId");
-const playerCountLabel = document.getElementById("playerCount");
-const roomLinkInput = document.getElementById("roomLink");
-
-const waitingMessage = document.getElementById("waitingMessage");
-
-// =========================
-// VARIÁVEIS
-// =========================
+const BOARD_SIZE = 10;
+const SHIPS = [5, 4, 3, 3, 2];
 
 let roomId = null;
 let playerId = null;
+let playerNumber = null;
 
-// =========================
-// GERAR CÓDIGO
-// =========================
+let myBoard = [];
+let enemyBoard = [];
 
-function generateRoomCode() {
+let roomUnsubscribe = null;
 
-    const chars =
-        "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+function createEmptyBoard() {
 
-    let code = "";
-
-    for(let i = 0; i < 6; i++) {
-
-        code += chars.charAt(
-            Math.floor(Math.random() * chars.length)
-        );
-
-    }
-
-    return code;
-}
-
-// =========================
-// GERAR ID JOGADOR
-// =========================
-
-function generatePlayerId() {
-
-    return "player_" +
-        Math.random()
-        .toString(36)
-        .substring(2, 12);
+    return Array.from(
+        { length: BOARD_SIZE },
+        () => Array(BOARD_SIZE).fill(0)
+    );
 
 }
 
-// =========================
-// MOSTRAR TELA
-// =========================
+function placeShipsRandomly() {
 
-function showRoomScreen() {
+    const board = createEmptyBoard();
 
-    homeScreen.classList.add("hidden");
-    roomScreen.classList.remove("hidden");
+    for(const shipSize of SHIPS) {
 
-}
+        let placed = false;
 
-// =========================
-// CRIAR SALA
-// =========================
+        while(!placed) {
 
-btnCreateRoom.addEventListener(
-    "click",
-    async () => {
+            const horizontal =
+                Math.random() < 0.5;
 
-        roomId = generateRoomCode();
+            const row =
+                Math.floor(
+                    Math.random() * BOARD_SIZE
+                );
 
-        playerId = generatePlayerId();
+            const col =
+                Math.floor(
+                    Math.random() * BOARD_SIZE
+                );
 
-        const roomRef =
-            doc(db, "rooms", roomId);
+            let canPlace = true;
 
-        await setDoc(roomRef, {
+            for(let i = 0; i < shipSize; i++) {
 
-            createdAt: Date.now(),
+                const r =
+                    horizontal ? row : row + i;
 
-            status: "waiting",
+                const c =
+                    horizontal ? col + i : col;
 
-            currentTurn: 1,
+                if(
+                    r >= BOARD_SIZE ||
+                    c >= BOARD_SIZE ||
+                    board[r][c] !== 0
+                ) {
 
-            players: {
-                player1: playerId,
-                player2: null
+                    canPlace = false;
+                    break;
+
+                }
+
             }
 
-        });
+            if(!canPlace)
+                continue;
 
-        enterRoom(roomId);
+            for(let i = 0; i < shipSize; i++) {
 
-    }
-);
+                const r =
+                    horizontal ? row : row + i;
 
-// =========================
-// ENTRAR POR CÓDIGO
-// =========================
+                const c =
+                    horizontal ? col + i : col;
 
-btnJoinRoom.addEventListener(
-    "click",
-    async () => {
+                board[r][c] = 1;
 
-        const code =
-            roomCodeInput.value
-            .trim()
-            .toUpperCase();
+            }
 
-        if(!code) {
-
-            alert("Digite um código.");
-
-            return;
+            placed = true;
 
         }
 
-        joinRoom(code);
-
-    }
-);
-
-// =========================
-// ENTRAR NA SALA
-// =========================
-
-async function joinRoom(code) {
-
-    const roomRef =
-        doc(db, "rooms", code);
-
-    const snap =
-        await getDoc(roomRef);
-
-    if(!snap.exists()) {
-
-        alert("Sala não encontrada.");
-
-        return;
-
     }
 
-    const data = snap.data();
-
-    if(data.players.player2) {
-
-        alert("Sala cheia.");
-
-        return;
-
-    }
-
-    playerId = generatePlayerId();
-
-    await updateDoc(roomRef, {
-
-        "players.player2": playerId,
-
-        status: "playing"
-
-    });
-
-    enterRoom(code);
+    return board;
 
 }
 
-// =========================
-// ABRIR SALA
-// =========================
-
-function enterRoom(code) {
-
-    roomId = code;
-
-    showRoomScreen();
-
-    roomIdLabel.textContent =
-        roomId;
-
-    const link =
-
-        window.location.origin +
-        window.location.pathname +
-        "?sala=" +
-        roomId;
-
-    roomLinkInput.value = link;
-
-    listenRoom();
-
-}
-
-// =========================
-// COPIAR LINK
-// =========================
-
-btnCopyLink.addEventListener(
-    "click",
-    () => {
-
-        navigator.clipboard.writeText(
-            roomLinkInput.value
-        );
-
-        alert(
-            "Link copiado!"
-        );
-
-    }
-);
-
-// =========================
-// OUVIR ALTERAÇÕES
-// =========================
-
-function listenRoom() {
-
-    const roomRef =
-        doc(db, "rooms", roomId);
-
-    onSnapshot(
-        roomRef,
-        (snapshot) => {
-
-            if(!snapshot.exists())
-                return;
-
-            const data =
-                snapshot.data();
-
-            let players = 1;
-
-            if(
-                data.players.player2
-            ) {
-
-                players = 2;
-
-            }
-
-            playerCountLabel.textContent =
-                players + "/2";
-
-            if(
-                data.status ===
-                "playing"
-            ) {
-
-                waitingMessage.innerHTML =
-                    "Jogador encontrado!";
-
-                setTimeout(() => {
-
-                    roomScreen
-                    .classList
-                    .add("hidden");
-
-                    gameScreen
-                    .classList
-                    .remove("hidden");
-
-                }, 1500);
-
-            }
-
-        }
-    );
-
-}
-
-// =========================
-// ENTRAR POR LINK
-// =========================
-
-const params =
-    new URLSearchParams(
-        window.location.search
-    );
-
-const sala =
-    params.get("sala");
-
-if(sala) {
-
-    joinRoom(
-        sala.toUpperCase()
-    );
-
-}
-// =========================
-// TESTE TABULEIROS
-// =========================
-
-function createBoard(boardId) {
+function buildBoard(containerId) {
 
     const board =
-        document.getElementById(boardId);
-
-    if(!board) return;
+        document.getElementById(containerId);
 
     board.innerHTML = "";
 
-    for(let row = 0; row < 10; row++) {
+    for(let row = 0; row < BOARD_SIZE; row++) {
 
-        for(let col = 0; col < 10; col++) {
+        for(let col = 0; col < BOARD_SIZE; col++) {
 
             const cell =
                 document.createElement("div");
@@ -342,9 +117,73 @@ function createBoard(boardId) {
 
 }
 
-setTimeout(() => {
+function renderPlayerBoard() {
 
-    createBoard("playerBoard");
-    createBoard("enemyBoard");
+    const board =
+        document.getElementById(
+            "playerBoard"
+        );
 
-}, 100);
+    const cells =
+        board.querySelectorAll(".cell");
+
+    cells.forEach(cell => {
+
+        const row =
+            Number(cell.dataset.row);
+
+        const col =
+            Number(cell.dataset.col);
+
+        cell.className = "cell";
+
+        const value =
+            myBoard[row][col];
+
+        if(value === 1) {
+
+            cell.classList.add("ship");
+
+        }
+
+        if(value === 2) {
+
+            cell.classList.add("miss");
+
+        }
+
+        if(value === 3) {
+
+            cell.classList.add("hit");
+
+        }
+
+    });
+
+}
+
+function startLocalTest() {
+
+    myBoard =
+        placeShipsRandomly();
+
+    buildBoard(
+        "playerBoard"
+    );
+
+    buildBoard(
+        "enemyBoard"
+    );
+
+    renderPlayerBoard();
+
+}
+
+window.addEventListener(
+    "load",
+    () => {
+
+        startLocalTest();
+
+    }
+);
