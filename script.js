@@ -6,554 +6,306 @@ import {
     getDoc,
     updateDoc,
     onSnapshot
-}
-from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-
-// =========================
-// CONFIGURAÇÕES
-// =========================
-
-const BOARD_SIZE = 10;
-
-const SHIPS = [
-    5,
-    4,
-    3,
-    3,
-    2
-];
-
-// =========================
-// ESTADO
-// =========================
-
-let roomId = null;
-let playerId = null;
-let playerRole = null;
-
-let myBoard = [];
-let enemyBoard = [];
-
-let roomData = null;
+} from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
 // =========================
 // ELEMENTOS
 // =========================
 
-const homeScreen =
-document.getElementById("homeScreen");
+const homeScreen = document.getElementById("homeScreen");
+const roomScreen = document.getElementById("roomScreen");
+const gameScreen = document.getElementById("gameScreen");
 
-const roomScreen =
-document.getElementById("roomScreen");
+const btnCreateRoom = document.getElementById("btnCreateRoom");
+const btnJoinRoom = document.getElementById("btnJoinRoom");
+const btnCopyLink = document.getElementById("btnCopyLink");
 
-const gameScreen =
-document.getElementById("gameScreen");
+const roomCodeInput = document.getElementById("roomCode");
 
-const btnCreateRoom =
-document.getElementById("btnCreateRoom");
-console.log("Botão criar:", btnCreateRoom);
+const roomIdLabel = document.getElementById("roomId");
+const playerCountLabel = document.getElementById("playerCount");
+const roomLinkInput = document.getElementById("roomLink");
 
-const btnJoinRoom =
-document.getElementById("btnJoinRoom");
-
-const btnCopyLink =
-document.getElementById("btnCopyLink");
-
-const roomCodeInput =
-document.getElementById("roomCode");
-
-const roomIdLabel =
-document.getElementById("roomId");
-
-const playerCountLabel =
-document.getElementById("playerCount");
-
-const roomLinkInput =
-document.getElementById("roomLink");
-
-const waitingMessage =
-document.getElementById("waitingMessage");
-
-const turnText =
-document.getElementById("turnText");
-
-const gameStatus =
-document.getElementById("gameStatus");
-
-const playerBoardDiv =
-document.getElementById("playerBoard");
-
-const enemyBoardDiv =
-document.getElementById("enemyBoard");
-
-const gameLog =
-document.getElementById("gameLog");
+const waitingMessage = document.getElementById("waitingMessage");
 
 // =========================
-// UTILIDADES
+// VARIÁVEIS
+// =========================
+
+let roomId = null;
+let playerId = null;
+
+// =========================
+// GERAR CÓDIGO
 // =========================
 
 function generateRoomCode() {
 
     const chars =
-    "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
     let code = "";
 
-    for(let i=0;i<6;i++){
+    for(let i = 0; i < 6; i++) {
 
-        code += chars[
-            Math.floor(
-                Math.random() *
-                chars.length
-            )
-        ];
+        code += chars.charAt(
+            Math.floor(Math.random() * chars.length)
+        );
 
     }
 
     return code;
-
 }
+
+// =========================
+// GERAR ID JOGADOR
+// =========================
 
 function generatePlayerId() {
 
     return "player_" +
-
-    Math.random()
-    .toString(36)
-    .substring(2,12);
-
-}
-
-function createBoard() {
-
-    return Array.from(
-        {length:BOARD_SIZE},
-        ()=>Array(BOARD_SIZE).fill(0)
-    );
-
-}
-
-function boardToString(board){
-
-    return JSON.stringify(board);
-
-}
-
-function stringToBoard(text){
-
-    return JSON.parse(text);
+        Math.random()
+        .toString(36)
+        .substring(2, 12);
 
 }
 
 // =========================
-// NAVIOS ALEATÓRIOS
+// MOSTRAR TELA
 // =========================
 
-function placeShipsRandomly() {
+function showRoomScreen() {
 
-    const board =
-    createBoard();
+    homeScreen.classList.add("hidden");
+    roomScreen.classList.remove("hidden");
 
-    for(const size of SHIPS){
+}
 
-        let placed = false;
+// =========================
+// CRIAR SALA
+// =========================
 
-        while(!placed){
+btnCreateRoom.addEventListener(
+    "click",
+    async () => {
 
-            const horizontal =
-            Math.random() < 0.5;
+        roomId = generateRoomCode();
 
-            const row =
-            Math.floor(
-                Math.random() *
-                BOARD_SIZE
-            );
+        playerId = generatePlayerId();
 
-            const col =
-            Math.floor(
-                Math.random() *
-                BOARD_SIZE
-            );
+        const roomRef =
+            doc(db, "rooms", roomId);
 
-            let canPlace =
-            true;
+        await setDoc(roomRef, {
 
-            for(
-                let i=0;
-                i<size;
-                i++
-            ){
+            createdAt: Date.now(),
 
-                const r =
-                horizontal ?
-                row :
-                row+i;
+            status: "waiting",
 
-                const c =
-                horizontal ?
-                col+i :
-                col;
+            currentTurn: 1,
 
-                if(
-                    r >= BOARD_SIZE ||
-                    c >= BOARD_SIZE ||
-                    board[r][c] !== 0
-                ){
-
-                    canPlace = false;
-                    break;
-
-                }
-
+            players: {
+                player1: playerId,
+                player2: null
             }
 
-            if(!canPlace)
-                continue;
+        });
 
-            for(
-                let i=0;
-                i<size;
-                i++
-            ){
-
-                const r =
-                horizontal ?
-                row :
-                row+i;
-
-                const c =
-                horizontal ?
-                col+i :
-                col;
-
-                board[r][c] = 1;
-
-            }
-
-            placed = true;
-
-        }
+        enterRoom(roomId);
 
     }
-
-    return board;
-
-}
+);
 
 // =========================
-// DESENHAR TABULEIROS
+// ENTRAR POR CÓDIGO
 // =========================
 
-function buildBoards() {
+btnJoinRoom.addEventListener(
+    "click",
+    async () => {
 
-    playerBoardDiv.innerHTML = "";
-    enemyBoardDiv.innerHTML = "";
+        const code =
+            roomCodeInput.value
+            .trim()
+            .toUpperCase();
 
-    for(let row=0;row<10;row++){
+        if(!code) {
 
-        for(let col=0;col<10;col++){
+            alert("Digite um código.");
 
-            const playerCell =
-            document.createElement("div");
-
-            playerCell.className =
-            "cell";
-
-            playerCell.dataset.row =
-            row;
-
-            playerCell.dataset.col =
-            col;
-
-            playerBoardDiv.appendChild(
-                playerCell
-            );
-
-            const enemyCell =
-            document.createElement("div");
-
-            enemyCell.className =
-            "cell";
-
-            enemyCell.dataset.row =
-            row;
-
-            enemyCell.dataset.col =
-            col;
-
-            enemyBoardDiv.appendChild(
-                enemyCell
-            );
+            return;
 
         }
+
+        joinRoom(code);
 
     }
-
-}
-
-function renderPlayerBoard(){
-
-    const cells =
-    playerBoardDiv.querySelectorAll(
-        ".cell"
-    );
-
-    cells.forEach(cell=>{
-
-        const row =
-        Number(
-            cell.dataset.row
-        );
-
-        const col =
-        Number(
-            cell.dataset.col
-        );
-
-        cell.className =
-        "cell";
-
-        if(
-            myBoard[row][col] === 1
-        ){
-
-            cell.classList.add(
-                "ship"
-            );
-
-        }
-
-    });
-
-    // =========================
-// ELEMENTOS DE STATUS
-// =========================
-
-const turnText =
-document.getElementById("turnText");
-
-const hitsLabel =
-document.getElementById("hits");
-
-const missesLabel =
-document.getElementById("misses");
-
-const gameStatus =
-document.getElementById("gameStatus");
-
-let hits = 0;
-let misses = 0;
+);
 
 // =========================
-// DESENHAR TABULEIRO INIMIGO
+// ENTRAR NA SALA
 // =========================
 
-function renderEnemyBoard(room){
-
-    const cells =
-    enemyBoardDiv.querySelectorAll(
-        ".cell"
-    );
-
-    cells.forEach(cell=>{
-
-        const row =
-        Number(cell.dataset.row);
-
-        const col =
-        Number(cell.dataset.col);
-
-        cell.onclick = null;
-
-        cell.className =
-        "cell";
-
-        const shotKey =
-        row + "_" + col;
-
-        const myShots =
-        room.shots?.[playerRole] || {};
-
-        if(myShots[shotKey]){
-
-            if(
-                myShots[shotKey] ===
-                "hit"
-            ){
-
-                cell.classList.add(
-                    "hit"
-                );
-
-            }else{
-
-                cell.classList.add(
-                    "miss"
-                );
-
-            }
-
-        }
-
-        if(
-            room.currentTurn ===
-            playerRole
-        ){
-
-            if(
-                !myShots[shotKey]
-            ){
-
-                cell.onclick =
-                ()=>fireShot(
-                    row,
-                    col
-                );
-
-            }
-
-        }
-
-    });
-
-}
-
-// =========================
-// DISPARAR TIRO
-// =========================
-
-async function fireShot(
-    row,
-    col
-){
+async function joinRoom(code) {
 
     const roomRef =
-    doc(
-        db,
-        "rooms",
-        roomId
-    );
+        doc(db, "rooms", code);
 
     const snap =
-    await getDoc(
-        roomRef
-    );
+        await getDoc(roomRef);
 
-    const room =
-    snap.data();
+    if(!snap.exists()) {
 
-    let enemyBoardData;
+        alert("Sala não encontrada.");
 
-    if(
-        playerRole ===
-        "player1"
-    ){
-
-        enemyBoardData =
-        JSON.parse(
-            room.boards.player2
-        );
-
-    }else{
-
-        enemyBoardData =
-        JSON.parse(
-            room.boards.player1
-        );
+        return;
 
     }
 
-    const hit =
+    const data = snap.data();
 
-        enemyBoardData[row][col]
-        === 1;
+    if(data.players.player2) {
 
-    const shotKey =
-    row + "_" + col;
+        alert("Sala cheia.");
 
-    const update = {};
-
-    update[
-        `shots.${playerRole}.${shotKey}`
-    ] =
-    hit
-    ? "hit"
-    : "miss";
-
-    update.currentTurn =
-
-        playerRole ===
-        "player1"
-
-        ? "player2"
-
-        : "player1";
-
-    await updateDoc(
-        roomRef,
-        update
-    );
-
-}
-
-// =========================
-// OUVIR JOGO
-// =========================
-
-function updateGame(room){
-
-    if(
-        room.currentTurn ===
-        playerRole
-    ){
-
-        turnText.textContent =
-        "Sua vez";
-
-    }else{
-
-        turnText.textContent =
-        "Vez do adversário";
+        return;
 
     }
 
-    renderEnemyBoard(
-        room
-    );
+    playerId = generatePlayerId();
 
-    const myShots =
-    room.shots?.[
-        playerRole
-    ] || {};
+    await updateDoc(roomRef, {
 
-    hits = 0;
-    misses = 0;
+        "players.player2": playerId,
 
-    Object.values(
-        myShots
-    ).forEach(result=>{
-
-        if(
-            result === "hit"
-        ){
-
-            hits++;
-
-        }else{
-
-            misses++;
-
-        }
+        status: "playing"
 
     });
 
-    hitsLabel.textContent =
-    hits;
-
-    missesLabel.textContent =
-    misses;
+    enterRoom(code);
 
 }
+
+// =========================
+// ABRIR SALA
+// =========================
+
+function enterRoom(code) {
+
+    roomId = code;
+
+    showRoomScreen();
+
+    roomIdLabel.textContent =
+        roomId;
+
+    const link =
+
+        window.location.origin +
+        window.location.pathname +
+        "?sala=" +
+        roomId;
+
+    roomLinkInput.value = link;
+
+    listenRoom();
+
 }
 
+// =========================
+// COPIAR LINK
+// =========================
+
+btnCopyLink.addEventListener(
+    "click",
+    () => {
+
+        navigator.clipboard.writeText(
+            roomLinkInput.value
+        );
+
+        alert(
+            "Link copiado!"
+        );
+
+    }
+);
+
+// =========================
+// OUVIR ALTERAÇÕES
+// =========================
+
+function listenRoom() {
+
+    const roomRef =
+        doc(db, "rooms", roomId);
+
+    onSnapshot(
+        roomRef,
+        (snapshot) => {
+
+            if(!snapshot.exists())
+                return;
+
+            const data =
+                snapshot.data();
+
+            let players = 1;
+
+            if(
+                data.players.player2
+            ) {
+
+                players = 2;
+
+            }
+
+            playerCountLabel.textContent =
+                players + "/2";
+
+            if(
+                data.status ===
+                "playing"
+            ) {
+
+                waitingMessage.innerHTML =
+                    "Jogador encontrado!";
+
+                setTimeout(() => {
+
+                    roomScreen
+                    .classList
+                    .add("hidden");
+
+                    gameScreen
+                    .classList
+                    .remove("hidden");
+
+                }, 1500);
+
+            }
+
+        }
+    );
+
+}
+
+// =========================
+// ENTRAR POR LINK
+// =========================
+
+const params =
+    new URLSearchParams(
+        window.location.search
+    );
+
+const sala =
+    params.get("sala");
+
+if(sala) {
+
+    joinRoom(
+        sala.toUpperCase()
+    );
+
+}
