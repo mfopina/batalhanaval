@@ -9,198 +9,220 @@ import {
 } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
 // =========================
+// LOG INICIAL
+// =========================
+console.log("SCRIPT CARREGADO");
+
+// =========================
 // ELEMENTOS
 // =========================
-
 const homeScreen = document.getElementById("homeScreen");
 const roomScreen = document.getElementById("roomScreen");
 const gameScreen = document.getElementById("gameScreen");
 
 const btnCreateRoom = document.getElementById("btnCreateRoom");
 const btnJoinRoom = document.getElementById("btnJoinRoom");
-const btnCopyLink = document.getElementById("btnCopyLink");
 
 const roomCodeInput = document.getElementById("roomCode");
 
 const roomIdLabel = document.getElementById("roomId");
 const playerCountLabel = document.getElementById("playerCount");
 const roomLinkInput = document.getElementById("roomLink");
-
 const waitingMessage = document.getElementById("waitingMessage");
+
+const playerBoardDiv = document.getElementById("playerBoard");
+const enemyBoardDiv = document.getElementById("enemyBoard");
 
 // =========================
 // VARIÁVEIS
 // =========================
-
 let roomId = null;
 let playerId = null;
+let myBoard = [];
+let enemyBoard = [];
 
 // =========================
-// GERAR CÓDIGO
+// CONFIG
 // =========================
+const SIZE = 10;
+const SHIPS = [5, 4, 3, 3, 2];
 
+// =========================
+// UTIL
+// =========================
 function generateRoomCode() {
-
-    const chars =
-        "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     let code = "";
-
-    for(let i = 0; i < 6; i++) {
-
-        code += chars.charAt(
-            Math.floor(Math.random() * chars.length)
-        );
-
+    for (let i = 0; i < 6; i++) {
+        code += chars[Math.floor(Math.random() * chars.length)];
     }
-
     return code;
 }
 
-// =========================
-// GERAR ID JOGADOR
-// =========================
-
 function generatePlayerId() {
-
-    return "player_" +
-        Math.random()
-        .toString(36)
-        .substring(2, 12);
-
+    return "player_" + Math.random().toString(36).substring(2, 10);
 }
 
 // =========================
-// MOSTRAR TELA
+// TABULEIRO
 // =========================
+function createBoard() {
+    return Array.from({ length: SIZE }, () =>
+        Array(SIZE).fill(0)
+    );
+}
 
-function showRoomScreen() {
+function placeShips(board) {
 
-    homeScreen.classList.add("hidden");
-    roomScreen.classList.remove("hidden");
+    for (const size of SHIPS) {
 
+        let placed = false;
+
+        while (!placed) {
+
+            const horizontal = Math.random() < 0.5;
+
+            const row = Math.floor(Math.random() * SIZE);
+            const col = Math.floor(Math.random() * SIZE);
+
+            let canPlace = true;
+
+            for (let i = 0; i < size; i++) {
+                const r = horizontal ? row : row + i;
+                const c = horizontal ? col + i : col;
+
+                if (r >= SIZE || c >= SIZE || board[r][c] !== 0) {
+                    canPlace = false;
+                    break;
+                }
+            }
+
+            if (!canPlace) continue;
+
+            for (let i = 0; i < size; i++) {
+                const r = horizontal ? row : row + i;
+                const c = horizontal ? col + i : col;
+                board[r][c] = 1;
+            }
+
+            placed = true;
+        }
+    }
+
+    return board;
+}
+
+// =========================
+// RENDER
+// =========================
+function buildBoards() {
+
+    playerBoardDiv.innerHTML = "";
+    enemyBoardDiv.innerHTML = "";
+
+    for (let r = 0; r < SIZE; r++) {
+        for (let c = 0; c < SIZE; c++) {
+
+            const p = document.createElement("div");
+            p.className = "cell";
+            p.dataset.r = r;
+            p.dataset.c = c;
+
+            const e = document.createElement("div");
+            e.className = "cell";
+            e.dataset.r = r;
+            e.dataset.c = c;
+
+            playerBoardDiv.appendChild(p);
+            enemyBoardDiv.appendChild(e);
+        }
+    }
+}
+
+function renderMyBoard() {
+
+    const cells = playerBoardDiv.querySelectorAll(".cell");
+
+    cells.forEach(cell => {
+
+        const r = cell.dataset.r;
+        const c = cell.dataset.c;
+
+        if (myBoard[r][c] === 1) {
+            cell.classList.add("ship");
+        }
+    });
 }
 
 // =========================
 // CRIAR SALA
 // =========================
+btnCreateRoom.addEventListener("click", async () => {
 
-btnCreateRoom.addEventListener(
-    "click",
-    async () => {
+    roomId = generateRoomCode();
+    playerId = generatePlayerId();
 
-        roomId = generateRoomCode();
+    myBoard = placeShips(createBoard());
 
-        playerId = generatePlayerId();
+    await setDoc(doc(db, "rooms", roomId), {
+        status: "waiting",
+        players: {
+            player1: playerId,
+            player2: null
+        },
+        boards: {
+            player1: JSON.stringify(myBoard),
+            player2: null
+        },
+        turn: "player1"
+    });
 
-        const roomRef =
-            doc(db, "rooms", roomId);
-
-        await setDoc(roomRef, {
-
-            createdAt: Date.now(),
-
-            status: "waiting",
-
-            currentTurn: 1,
-
-            players: {
-                player1: playerId,
-                player2: null
-            }
-
-        });
-
-        enterRoom(roomId);
-
-    }
-);
+    enterRoom();
+});
 
 // =========================
-// ENTRAR POR CÓDIGO
+// ENTRAR SALA
 // =========================
+btnJoinRoom.addEventListener("click", async () => {
 
-btnJoinRoom.addEventListener(
-    "click",
-    async () => {
+    const code = roomCodeInput.value.trim().toUpperCase();
+    if (!code) return;
 
-        const code =
-            roomCodeInput.value
-            .trim()
-            .toUpperCase();
+    const ref = doc(db, "rooms", code);
+    const snap = await getDoc(ref);
 
-        if(!code) {
-
-            alert("Digite um código.");
-
-            return;
-
-        }
-
-        joinRoom(code);
-
-    }
-);
-
-// =========================
-// ENTRAR NA SALA
-// =========================
-
-async function joinRoom(code) {
-
-    const roomRef =
-        doc(db, "rooms", code);
-
-    const snap =
-        await getDoc(roomRef);
-
-    if(!snap.exists()) {
-
-        alert("Sala não encontrada.");
-
+    if (!snap.exists()) {
+        alert("Sala não existe");
         return;
-
-    }
-
-    const data = snap.data();
-
-    if(data.players.player2) {
-
-        alert("Sala cheia.");
-
-        return;
-
     }
 
     playerId = generatePlayerId();
 
-    await updateDoc(roomRef, {
+    myBoard = placeShips(createBoard());
 
+    await updateDoc(ref, {
         "players.player2": playerId,
-
+        "boards.player2": JSON.stringify(myBoard),
         status: "playing"
-
     });
-
-    enterRoom(code);
-
-}
-
-// =========================
-// ABRIR SALA
-// =========================
-
-function enterRoom(code) {
 
     roomId = code;
 
-    showRoomScreen();
+    enterRoom();
+});
 
-    roomIdLabel.textContent =
-        roomId;
+// =========================
+// ENTRAR NA UI
+// =========================
+function enterRoom() {
+
+    homeScreen.classList.add("hidden");
+    roomScreen.classList.add("hidden");
+    gameScreen.classList.remove("hidden");
+
+    roomIdLabel.textContent = roomId;
 
     const link =
-
         window.location.origin +
         window.location.pathname +
         "?sala=" +
@@ -208,104 +230,41 @@ function enterRoom(code) {
 
     roomLinkInput.value = link;
 
-    listenRoom();
+    buildBoards();
+    renderMyBoard();
 
+    listenRoom();
 }
 
 // =========================
-// COPIAR LINK
+// LISTENER
 // =========================
-
-btnCopyLink.addEventListener(
-    "click",
-    () => {
-
-        navigator.clipboard.writeText(
-            roomLinkInput.value
-        );
-
-        alert(
-            "Link copiado!"
-        );
-
-    }
-);
-
-// =========================
-// OUVIR ALTERAÇÕES
-// =========================
-
 function listenRoom() {
 
-    const roomRef =
-        doc(db, "rooms", roomId);
+    onSnapshot(doc(db, "rooms", roomId), (snap) => {
 
-    onSnapshot(
-        roomRef,
-        (snapshot) => {
+        const data = snap.data();
 
-            if(!snapshot.exists())
-                return;
+        if (!data) return;
 
-            const data =
-                snapshot.data();
+        const p2 = data.players.player2 ? 2 : 1;
 
-            let players = 1;
+        playerCountLabel.textContent = p2 + "/2";
 
-            if(
-                data.players.player2
-            ) {
-
-                players = 2;
-
-            }
-
-            playerCountLabel.textContent =
-                players + "/2";
-
-            if(
-                data.status ===
-                "playing"
-            ) {
-
-                waitingMessage.innerHTML =
-                    "Jogador encontrado!";
-
-                setTimeout(() => {
-
-                    roomScreen
-                    .classList
-                    .add("hidden");
-
-                    gameScreen
-                    .classList
-                    .remove("hidden");
-
-                }, 1500);
-
-            }
-
-        }
-    );
-
+        waitingMessage.innerText =
+            data.status === "playing"
+                ? "Jogador conectado!"
+                : "Aguardando...";
+    });
 }
 
 // =========================
-// ENTRAR POR LINK
+// LINK DIRETO
 // =========================
+const params = new URLSearchParams(window.location.search);
+const sala = params.get("sala");
 
-const params =
-    new URLSearchParams(
-        window.location.search
-    );
-
-const sala =
-    params.get("sala");
-
-if(sala) {
-
-    joinRoom(
-        sala.toUpperCase()
-    );
-
+if (sala) {
+    roomId = sala.toUpperCase();
+    enterRoom();
 }
