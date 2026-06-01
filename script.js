@@ -217,8 +217,8 @@ btnJoinRoom.addEventListener("click", async () => {
 function enterRoom() {
 
     homeScreen.classList.add("hidden");
-    roomScreen.classList.add("hidden");
-    gameScreen.classList.remove("hidden");
+    roomScreen.classList.remove("hidden");
+    gameScreen.classList.add("hidden");
 
     roomIdLabel.textContent = roomId;
 
@@ -268,3 +268,12 @@ if (sala) {
     roomId = sala.toUpperCase();
     enterRoom();
 }
+
+const btnCopyLink = document.getElementById("btnCopyLink");
+
+btnCopyLink.addEventListener("click", () => {
+
+    navigator.clipboard.writeText(roomLinkInput.value);
+
+    alert("Link copiado!");
+});
