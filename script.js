@@ -51,6 +51,7 @@ document.getElementById("gameScreen");
 
 const btnCreateRoom =
 document.getElementById("btnCreateRoom");
+console.log("Botão criar:", btnCreateRoom);
 
 const btnJoinRoom =
 document.getElementById("btnJoinRoom");
