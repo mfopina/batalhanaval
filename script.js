@@ -325,5 +325,234 @@ function renderPlayerBoard(){
 
     });
 
+    // =========================
+// ELEMENTOS DE STATUS
+// =========================
+
+const turnText =
+document.getElementById("turnText");
+
+const hitsLabel =
+document.getElementById("hits");
+
+const missesLabel =
+document.getElementById("misses");
+
+const gameStatus =
+document.getElementById("gameStatus");
+
+let hits = 0;
+let misses = 0;
+
+// =========================
+// DESENHAR TABULEIRO INIMIGO
+// =========================
+
+function renderEnemyBoard(room){
+
+    const cells =
+    enemyBoardDiv.querySelectorAll(
+        ".cell"
+    );
+
+    cells.forEach(cell=>{
+
+        const row =
+        Number(cell.dataset.row);
+
+        const col =
+        Number(cell.dataset.col);
+
+        cell.onclick = null;
+
+        cell.className =
+        "cell";
+
+        const shotKey =
+        row + "_" + col;
+
+        const myShots =
+        room.shots?.[playerRole] || {};
+
+        if(myShots[shotKey]){
+
+            if(
+                myShots[shotKey] ===
+                "hit"
+            ){
+
+                cell.classList.add(
+                    "hit"
+                );
+
+            }else{
+
+                cell.classList.add(
+                    "miss"
+                );
+
+            }
+
+        }
+
+        if(
+            room.currentTurn ===
+            playerRole
+        ){
+
+            if(
+                !myShots[shotKey]
+            ){
+
+                cell.onclick =
+                ()=>fireShot(
+                    row,
+                    col
+                );
+
+            }
+
+        }
+
+    });
+
+}
+
+// =========================
+// DISPARAR TIRO
+// =========================
+
+async function fireShot(
+    row,
+    col
+){
+
+    const roomRef =
+    doc(
+        db,
+        "rooms",
+        roomId
+    );
+
+    const snap =
+    await getDoc(
+        roomRef
+    );
+
+    const room =
+    snap.data();
+
+    let enemyBoardData;
+
+    if(
+        playerRole ===
+        "player1"
+    ){
+
+        enemyBoardData =
+        JSON.parse(
+            room.boards.player2
+        );
+
+    }else{
+
+        enemyBoardData =
+        JSON.parse(
+            room.boards.player1
+        );
+
+    }
+
+    const hit =
+
+        enemyBoardData[row][col]
+        === 1;
+
+    const shotKey =
+    row + "_" + col;
+
+    const update = {};
+
+    update[
+        `shots.${playerRole}.${shotKey}`
+    ] =
+    hit
+    ? "hit"
+    : "miss";
+
+    update.currentTurn =
+
+        playerRole ===
+        "player1"
+
+        ? "player2"
+
+        : "player1";
+
+    await updateDoc(
+        roomRef,
+        update
+    );
+
+}
+
+// =========================
+// OUVIR JOGO
+// =========================
+
+function updateGame(room){
+
+    if(
+        room.currentTurn ===
+        playerRole
+    ){
+
+        turnText.textContent =
+        "Sua vez";
+
+    }else{
+
+        turnText.textContent =
+        "Vez do adversário";
+
+    }
+
+    renderEnemyBoard(
+        room
+    );
+
+    const myShots =
+    room.shots?.[
+        playerRole
+    ] || {};
+
+    hits = 0;
+    misses = 0;
+
+    Object.values(
+        myShots
+    ).forEach(result=>{
+
+        if(
+            result === "hit"
+        ){
+
+            hits++;
+
+        }else{
+
+            misses++;
+
+        }
+
+    });
+
+    hitsLabel.textContent =
+    hits;
+
+    missesLabel.textContent =
+    misses;
+
+}
 }
 
