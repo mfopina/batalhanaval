@@ -335,8 +335,7 @@ async ()=>{
             "players.player2":
             playerId,
 
-            "boards.player2":
-            myBoard,
+            "boards.player2": JSON.stringify(myBoard),
 
             status:
             "playing"
@@ -399,7 +398,9 @@ function startRoomListener(){
             ){
 
                 enemyBoard =
-                room.boards.player2;
+                room.boards.player2
+                ? JSON.parse(room.boards.player2)
+                : null;
 
             }
 
@@ -409,7 +410,9 @@ function startRoomListener(){
             ){
 
                 enemyBoard =
-                room.boards.player1;
+                room.boards.player1
+                ? JSON.parse(room.boards.player1)
+                : null;
 
             }
 
