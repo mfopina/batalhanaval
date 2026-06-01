@@ -9,10 +9,11 @@
     <title>Batalha Naval Online</title>
 
     <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
 
     <meta name="theme-color" content="#1565c0">
 
-    <script type="module" src="script.js" defer></script>
+    <script type="module" src="script.js"></script>
 
 </head>
 
@@ -24,9 +25,7 @@
 
 </header>
 
-<!-- ================================= -->
 <!-- TELA INICIAL -->
-<!-- ================================= -->
 
 <section id="homeScreen" class="screen">
 
@@ -34,8 +33,12 @@
 
         <h2>Criar ou Entrar em uma Partida</h2>
 
-        <button id="btnCreateRoom" class="primary">
+        <button
+            id="btnCreateRoom"
+            class="primary">
+
             Criar Sala
+
         </button>
 
         <hr>
@@ -46,40 +49,52 @@
             type="text"
             id="roomCode"
             maxlength="6"
-            placeholder="Digite o código da sala">
+            placeholder="Digite o código">
 
         <button id="btnJoinRoom">
+
             Entrar
+
         </button>
 
     </div>
 
 </section>
 
-<!-- ================================= -->
 <!-- SALA -->
-<!-- ================================= -->
 
-<section id="roomScreen" class="screen hidden">
+<section
+    id="roomScreen"
+    class="screen hidden">
 
     <div class="card">
 
-        <h2>Sala</h2>
+        <h2>Sala Criada</h2>
 
         <p>
+
             Código:
+
             <strong id="roomId">
+
                 ------
+
             </strong>
+
         </p>
 
         <br>
 
         <p>
+
             Jogadores:
+
             <span id="playerCount">
+
                 1/2
+
             </span>
+
         </p>
 
         <br>
@@ -89,7 +104,9 @@
             readonly>
 
         <button id="btnCopyLink">
+
             Copiar Link
+
         </button>
 
         <br><br>
@@ -104,11 +121,11 @@
 
 </section>
 
-<!-- ================================= -->
 <!-- JOGO -->
-<!-- ================================= -->
 
-<section id="gameScreen" class="screen hidden">
+<section
+    id="gameScreen"
+    class="screen hidden">
 
     <!-- STATUS -->
 
@@ -119,7 +136,9 @@
             <h3>Turno</h3>
 
             <p id="turnText">
+
                 Aguardando...
+
             </p>
 
         </div>
@@ -129,7 +148,9 @@
             <h3>Status</h3>
 
             <p id="gameStatus">
+
                 Em andamento
+
             </p>
 
         </div>
@@ -143,11 +164,15 @@
         <div class="statBox">
 
             <span class="label">
+
                 Acertos
+
             </span>
 
             <span id="hits">
+
                 0
+
             </span>
 
         </div>
@@ -155,11 +180,15 @@
         <div class="statBox">
 
             <span class="label">
+
                 Erros
+
             </span>
 
             <span id="misses">
+
                 0
+
             </span>
 
         </div>
@@ -167,11 +196,15 @@
         <div class="statBox">
 
             <span class="label">
+
                 Navios Afundados
+
             </span>
 
             <span id="sunkShips">
+
                 0
+
             </span>
 
         </div>
@@ -182,28 +215,34 @@
 
     <div class="boardsContainer">
 
-        <!-- JOGADOR -->
-
         <div class="boardSection">
 
-            <h2>🚢 Sua Frota</h2>
+            <h2>
+
+                🚢 Sua Frota
+
+            </h2>
 
             <div
                 id="playerBoard"
                 class="board">
+
             </div>
 
         </div>
 
-        <!-- INIMIGO -->
-
         <div class="boardSection">
 
-            <h2>🎯 Ataque ao Inimigo</h2>
+            <h2>
+
+                🎯 Ataque ao Inimigo
+
+            </h2>
 
             <div
                 id="enemyBoard"
                 class="board">
+
             </div>
 
         </div>
@@ -214,78 +253,108 @@
 
     <div class="logContainer">
 
-        <h2>Histórico</h2>
+        <h2>
 
-        <div id="gameLog"></div>
+            Histórico
+
+        </h2>
+
+        <div id="gameLog">
+
+        </div>
 
     </div>
 
 </section>
 
-<!-- ================================= -->
 <!-- FIM DE JOGO -->
-<!-- ================================= -->
 
-<section id="endScreen" class="screen hidden">
+<section
+    id="endScreen"
+    class="screen hidden">
 
     <div class="card">
 
         <h1 id="winnerMessage">
+
             Vitória!
+
         </h1>
 
         <div class="finalStats">
 
             <p>
+
                 Acertos:
+
                 <span id="finalHits">
+
                     0
+
                 </span>
+
             </p>
 
             <p>
+
                 Erros:
+
                 <span id="finalMisses">
+
                     0
+
                 </span>
+
             </p>
 
             <p>
+
                 Navios Afundados:
+
                 <span id="finalSunk">
+
                     0
+
                 </span>
+
             </p>
 
         </div>
 
         <button id="btnPlayAgain">
+
             Nova Partida
+
         </button>
 
     </div>
 
 </section>
 
-<!-- ================================= -->
 <!-- MODAL -->
-<!-- ================================= -->
 
-<div id="messageModal"
-     class="modal hidden">
+<div
+    id="messageModal"
+    class="modal hidden">
 
     <div class="modalContent">
 
         <h2 id="modalTitle">
+
             Informação
+
         </h2>
 
         <p id="modalText">
+
             Mensagem
+
         </p>
 
         <button id="modalClose">
+
             OK
+
         </button>
 
     </div>
@@ -295,12 +364,15 @@
 <footer>
 
     <small>
+
         Batalha Naval Online © 2026
+
     </small>
 
 </footer>
 
-    <script>
+<script>
+
 if ("serviceWorker" in navigator) {
 
     window.addEventListener("load", () => {
@@ -317,7 +389,6 @@ if ("serviceWorker" in navigator) {
             .catch(error => {
 
                 console.error(
-                    "Erro ao registrar SW:",
                     error
                 );
 
@@ -326,12 +397,9 @@ if ("serviceWorker" in navigator) {
     });
 
 }
-</script>
 
-    <script>
-alert("HTML FUNCIONANDO");
-console.log("HTML FUNCIONANDO");
 </script>
 
 </body>
+
 </html>
