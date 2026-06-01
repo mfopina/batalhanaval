@@ -309,3 +309,42 @@ if(sala) {
     );
 
 }
+// =========================
+// TESTE TABULEIROS
+// =========================
+
+function createBoard(boardId) {
+
+    const board =
+        document.getElementById(boardId);
+
+    if(!board) return;
+
+    board.innerHTML = "";
+
+    for(let row = 0; row < 10; row++) {
+
+        for(let col = 0; col < 10; col++) {
+
+            const cell =
+                document.createElement("div");
+
+            cell.classList.add("cell");
+
+            cell.dataset.row = row;
+            cell.dataset.col = col;
+
+            board.appendChild(cell);
+
+        }
+
+    }
+
+}
+
+setTimeout(() => {
+
+    createBoard("playerBoard");
+    createBoard("enemyBoard");
+
+}, 100);
