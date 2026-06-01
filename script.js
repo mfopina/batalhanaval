@@ -9,7 +9,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
 // =========================
-// LOG INICIAL
+// LOG
 // =========================
 console.log("SCRIPT CARREGADO");
 
@@ -22,12 +22,14 @@ const gameScreen = document.getElementById("gameScreen");
 
 const btnCreateRoom = document.getElementById("btnCreateRoom");
 const btnJoinRoom = document.getElementById("btnJoinRoom");
+const btnCopyLink = document.getElementById("btnCopyLink");
 
 const roomCodeInput = document.getElementById("roomCode");
 
 const roomIdLabel = document.getElementById("roomId");
 const playerCountLabel = document.getElementById("playerCount");
 const roomLinkInput = document.getElementById("roomLink");
+
 const waitingMessage = document.getElementById("waitingMessage");
 
 const playerBoardDiv = document.getElementById("playerBoard");
@@ -113,7 +115,7 @@ function placeShips(board) {
 }
 
 // =========================
-// RENDER
+// RENDER TABULEIRO
 // =========================
 function buildBoards() {
 
@@ -177,7 +179,7 @@ btnCreateRoom.addEventListener("click", async () => {
         turn: "player1"
     });
 
-    enterRoom();
+    showRoom();
 });
 
 // =========================
@@ -196,6 +198,7 @@ btnJoinRoom.addEventListener("click", async () => {
         return;
     }
 
+    roomId = code;
     playerId = generatePlayerId();
 
     myBoard = placeShips(createBoard());
@@ -206,15 +209,13 @@ btnJoinRoom.addEventListener("click", async () => {
         status: "playing"
     });
 
-    roomId = code;
-
-    enterRoom();
+    showRoom();
 });
 
 // =========================
-// ENTRAR NA UI
+// MOSTRAR SALA (UI)
 // =========================
-function enterRoom() {
+function showRoom() {
 
     homeScreen.classList.add("hidden");
     roomScreen.classList.remove("hidden");
@@ -237,43 +238,44 @@ function enterRoom() {
 }
 
 // =========================
-// LISTENER
+// COPIAR LINK
 // =========================
-function listenRoom() {
-
-    onSnapshot(doc(db, "rooms", roomId), (snap) => {
-
-        const data = snap.data();
-
-        if (!data) return;
-
-        const p2 = data.players.player2 ? 2 : 1;
-
-        playerCountLabel.textContent = p2 + "/2";
-
-        waitingMessage.innerText =
-            data.status === "playing"
-                ? "Jogador conectado!"
-                : "Aguardando...";
-    });
-}
-
-// =========================
-// LINK DIRETO
-// =========================
-const params = new URLSearchParams(window.location.search);
-const sala = params.get("sala");
-
-if (sala) {
-    roomId = sala.toUpperCase();
-    enterRoom();
-}
-
-const btnCopyLink = document.getElementById("btnCopyLink");
-
 btnCopyLink.addEventListener("click", () => {
 
     navigator.clipboard.writeText(roomLinkInput.value);
 
     alert("Link copiado!");
 });
+
+// =========================
+// LISTENER FIREBASE
+// =========================
+function listenRoom() {
+
+    onSnapshot(doc(db, "rooms", roomId), (snap) => {
+
+        const data = snap.data();
+        if (!data) return;
+
+        const players =
+            data.players.player2 ? "2/2" : "1/2";
+
+        playerCountLabel.textContent = players;
+
+        if (data.status === "playing") {
+
+            waitingMessage.innerText = "Jogador conectado!";
+        }
+    });
+}
+
+// =========================
+// ENTRADA POR LINK
+// =========================
+const params = new URLSearchParams(window.location.search);
+const sala = params.get("sala");
+
+if (sala) {
+    roomId = sala.toUpperCase();
+    showRoom();
+}
