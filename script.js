@@ -1,19 +1,90 @@
+import { db } from "./firebase.js";
+
+import {
+    doc,
+    setDoc,
+    getDoc,
+    updateDoc,
+    onSnapshot
+}
+from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
 const BOARD_SIZE = 10;
-const SHIPS = [5, 4, 3, 3, 2];
+const SHIPS = [5,4,3,3,2];
 
 let roomId = null;
 let playerId = null;
-let playerNumber = null;
+let playerRole = null;
 
 let myBoard = [];
 let enemyBoard = [];
 
-let roomUnsubscribe = null;
+let roomListener = null;
+
+const homeScreen =
+document.getElementById("homeScreen");
+
+const roomScreen =
+document.getElementById("roomScreen");
+
+const gameScreen =
+document.getElementById("gameScreen");
+
+const btnCreateRoom =
+document.getElementById("btnCreateRoom");
+
+const btnJoinRoom =
+document.getElementById("btnJoinRoom");
+
+const btnCopyLink =
+document.getElementById("btnCopyLink");
+
+const roomCodeInput =
+document.getElementById("roomCode");
+
+const roomIdLabel =
+document.getElementById("roomId");
+
+const roomLinkInput =
+document.getElementById("roomLink");
+
+const playerCountLabel =
+document.getElementById("playerCount");
+
+function generateRoomCode() {
+
+    const chars =
+    "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+    let code = "";
+
+    for(let i=0;i<6;i++){
+
+        code += chars[
+            Math.floor(
+                Math.random()*chars.length
+            )
+        ];
+
+    }
+
+    return code;
+
+}
+
+function generatePlayerId() {
+
+    return "player_" +
+    Math.random()
+    .toString(36)
+    .substring(2,12);
+
+}
 
 function createEmptyBoard() {
 
     return Array.from(
-        { length: BOARD_SIZE },
+        {length: BOARD_SIZE},
         () => Array(BOARD_SIZE).fill(0)
     );
 
@@ -21,42 +92,47 @@ function createEmptyBoard() {
 
 function placeShipsRandomly() {
 
-    const board = createEmptyBoard();
+    const board =
+    createEmptyBoard();
 
-    for(const shipSize of SHIPS) {
+    for(const shipSize of SHIPS){
 
         let placed = false;
 
-        while(!placed) {
+        while(!placed){
 
             const horizontal =
-                Math.random() < 0.5;
+            Math.random() < 0.5;
 
             const row =
-                Math.floor(
-                    Math.random() * BOARD_SIZE
-                );
+            Math.floor(
+                Math.random()*BOARD_SIZE
+            );
 
             const col =
-                Math.floor(
-                    Math.random() * BOARD_SIZE
-                );
+            Math.floor(
+                Math.random()*BOARD_SIZE
+            );
 
             let canPlace = true;
 
-            for(let i = 0; i < shipSize; i++) {
+            for(let i=0;i<shipSize;i++){
 
                 const r =
-                    horizontal ? row : row + i;
+                horizontal ?
+                row :
+                row+i;
 
                 const c =
-                    horizontal ? col + i : col;
+                horizontal ?
+                col+i :
+                col;
 
                 if(
                     r >= BOARD_SIZE ||
                     c >= BOARD_SIZE ||
                     board[r][c] !== 0
-                ) {
+                ){
 
                     canPlace = false;
                     break;
@@ -68,13 +144,17 @@ function placeShipsRandomly() {
             if(!canPlace)
                 continue;
 
-            for(let i = 0; i < shipSize; i++) {
+            for(let i=0;i<shipSize;i++){
 
                 const r =
-                    horizontal ? row : row + i;
+                horizontal ?
+                row :
+                row+i;
 
                 const c =
-                    horizontal ? col + i : col;
+                horizontal ?
+                col+i :
+                col;
 
                 board[r][c] = 1;
 
@@ -90,19 +170,31 @@ function placeShipsRandomly() {
 
 }
 
-function buildBoard(containerId) {
+function buildBoards() {
+
+    buildBoard(
+        "playerBoard"
+    );
+
+    buildBoard(
+        "enemyBoard"
+    );
+
+}
+
+function buildBoard(id){
 
     const board =
-        document.getElementById(containerId);
+    document.getElementById(id);
 
     board.innerHTML = "";
 
-    for(let row = 0; row < BOARD_SIZE; row++) {
+    for(let row=0;row<10;row++){
 
-        for(let col = 0; col < BOARD_SIZE; col++) {
+        for(let col=0;col<10;col++){
 
             const cell =
-                document.createElement("div");
+            document.createElement("div");
 
             cell.classList.add("cell");
 
@@ -117,44 +209,35 @@ function buildBoard(containerId) {
 
 }
 
-function renderPlayerBoard() {
+function renderMyBoard(){
 
     const board =
-        document.getElementById(
-            "playerBoard"
-        );
+    document.getElementById(
+        "playerBoard"
+    );
 
     const cells =
-        board.querySelectorAll(".cell");
+    board.querySelectorAll(".cell");
 
-    cells.forEach(cell => {
+    cells.forEach(cell=>{
 
         const row =
-            Number(cell.dataset.row);
+        Number(cell.dataset.row);
 
         const col =
-            Number(cell.dataset.col);
+        Number(cell.dataset.col);
 
-        cell.className = "cell";
+        cell.className =
+        "cell";
 
         const value =
-            myBoard[row][col];
+        myBoard[row][col];
 
-        if(value === 1) {
+        if(value === 1){
 
-            cell.classList.add("ship");
-
-        }
-
-        if(value === 2) {
-
-            cell.classList.add("miss");
-
-        }
-
-        if(value === 3) {
-
-            cell.classList.add("hit");
+            cell.classList.add(
+                "ship"
+            );
 
         }
 
@@ -162,28 +245,193 @@ function renderPlayerBoard() {
 
 }
 
-function startLocalTest() {
+btnCreateRoom.addEventListener(
+"click",
+async ()=>{
+
+    roomId =
+    generateRoomCode();
+
+    playerId =
+    generatePlayerId();
+
+    playerRole =
+    "player1";
 
     myBoard =
-        placeShipsRandomly();
+    placeShipsRandomly();
 
-    buildBoard(
-        "playerBoard"
+    await setDoc(
+        doc(db,"rooms",roomId),
+        {
+
+            status:"waiting",
+
+            currentTurn:"player1",
+
+            winner:null,
+
+            players:{
+                player1:playerId,
+                player2:null
+            },
+
+            boards:{
+                player1:myBoard,
+                player2:null
+            }
+
+        }
     );
 
-    buildBoard(
-        "enemyBoard"
+    enterRoom();
+
+});
+
+btnJoinRoom.addEventListener(
+"click",
+async ()=>{
+
+    const code =
+    roomCodeInput.value
+    .trim()
+    .toUpperCase();
+
+    if(!code)
+        return;
+
+    const roomRef =
+    doc(db,"rooms",code);
+
+    const snap =
+    await getDoc(roomRef);
+
+    if(!snap.exists()){
+
+        alert(
+            "Sala não encontrada"
+        );
+
+        return;
+
+    }
+
+    const data =
+    snap.data();
+
+    playerId =
+    generatePlayerId();
+
+    playerRole =
+    "player2";
+
+    myBoard =
+    placeShipsRandomly();
+
+    await updateDoc(
+        roomRef,
+        {
+
+            "players.player2":
+            playerId,
+
+            "boards.player2":
+            myBoard,
+
+            status:
+            "playing"
+
+        }
     );
 
-    renderPlayerBoard();
+    roomId = code;
+
+    enterRoom();
+
+});
+
+function enterRoom(){
+
+    homeScreen.classList.add(
+        "hidden"
+    );
+
+    roomScreen.classList.add(
+        "hidden"
+    );
+
+    gameScreen.classList.remove(
+        "hidden"
+    );
+
+    buildBoards();
+
+    renderMyBoard();
+
+    roomIdLabel.textContent =
+    roomId;
+
+    startRoomListener();
 
 }
 
-window.addEventListener(
-    "load",
-    () => {
+function startRoomListener(){
 
-        startLocalTest();
+    const roomRef =
+    doc(db,"rooms",roomId);
 
-    }
+    roomListener =
+    onSnapshot(
+        roomRef,
+        snapshot=>{
+
+            if(
+                !snapshot.exists()
+            )
+                return;
+
+            const room =
+            snapshot.data();
+
+            if(
+                playerRole ===
+                "player1"
+            ){
+
+                enemyBoard =
+                room.boards.player2;
+
+            }
+
+            if(
+                playerRole ===
+                "player2"
+            ){
+
+                enemyBoard =
+                room.boards.player1;
+
+            }
+
+        }
+    );
+
+}
+
+const params =
+new URLSearchParams(
+    window.location.search
 );
+
+const sala =
+params.get("sala");
+
+if(sala){
+
+    roomCodeInput.value =
+    sala.toUpperCase();
+
+}
+
+
+
