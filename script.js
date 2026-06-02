@@ -37,7 +37,6 @@ let playerId = null;
 let playerRole = null;
 
 let myBoard = [];
-let enemyBoard = [];
 
 // =========================
 // CONFIG
@@ -104,7 +103,7 @@ function placeShips(board) {
 }
 
 // =========================
-// RENDER
+// RENDER TABULEIRO
 // =========================
 function buildBoards() {
     playerBoardDiv.innerHTML = "";
@@ -123,8 +122,8 @@ function buildBoards() {
             e.dataset.r = r;
             e.dataset.c = c;
 
-            enemyBoardDiv.appendChild(e);
             playerBoardDiv.appendChild(p);
+            enemyBoardDiv.appendChild(e);
         }
     }
 }
@@ -148,6 +147,7 @@ function renderMyBoard() {
 // CRIAR SALA
 // =========================
 btnCreateRoom.addEventListener("click", async () => {
+
     roomId = generateRoomCode();
     playerId = generatePlayerId();
     playerRole = "player1";
@@ -174,6 +174,7 @@ btnCreateRoom.addEventListener("click", async () => {
 // ENTRAR SALA
 // =========================
 btnJoinRoom.addEventListener("click", async () => {
+
     const code = roomCodeInput.value.trim().toUpperCase();
     if (!code) return;
 
@@ -200,20 +201,20 @@ btnJoinRoom.addEventListener("click", async () => {
 
     await updateDoc(ref, {
         "players.player2": playerId,
-        "boards.player2": JSON.stringify(myBoard),
-        status: "playing"
+        "boards.player2": JSON.stringify(myBoard)
     });
 
     enterRoom();
 });
 
 // =========================
-// ENTRAR UI
+// ENTRAR SALA (UI)
 // =========================
 function enterRoom() {
 
     homeScreen.classList.add("hidden");
     roomScreen.classList.remove("hidden");
+    gameScreen.classList.add("hidden");
 
     roomIdLabel.textContent = roomId;
 
@@ -230,12 +231,14 @@ function enterRoom() {
 }
 
 // =========================
-// LISTENER
+// LISTENER FIREBASE
 // =========================
 function listenRoom() {
+
     const ref = doc(db, "rooms", roomId);
 
-    onSnapshot(ref, (snap) => {
+    onSnapshot(ref, async (snap) => {
+
         if (!snap.exists()) return;
 
         const data = snap.data();
@@ -243,15 +246,33 @@ function listenRoom() {
         const players = data.players.player2 ? 2 : 1;
         playerCountLabel.textContent = players + "/2";
 
+        // 🔥 START AUTOMÁTICO DO JOGO
+        if (
+            data.players.player1 &&
+            data.players.player2 &&
+            data.status === "waiting"
+        ) {
+            await updateDoc(ref, {
+                status: "playing",
+                currentTurn: "player1"
+            });
+        }
+
+        // 🔥 ENTRAR NO JOGO
         if (data.status === "playing") {
+
             waitingMessage.innerText = "Jogador conectado!";
 
             setTimeout(() => {
                 roomScreen.classList.add("hidden");
                 gameScreen.classList.remove("hidden");
 
-                turnText.innerText = data.currentTurn;
-            }, 1200);
+                turnText.innerText =
+                    data.currentTurn === playerRole
+                        ? "Sua vez"
+                        : "Vez do inimigo";
+
+            }, 800);
         }
     });
 }
