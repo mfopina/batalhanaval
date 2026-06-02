@@ -37,7 +37,7 @@ const turnText = document.getElementById("turnText");
 // CONFIG
 // =========================
 
-const BOARD_SIZE = 10;
+const SIZE = 10;
 const SHIPS = [5,4,3,3,2];
 
 let roomId = null;
@@ -51,7 +51,7 @@ let gameStarted = false;
 // HELPERS
 // =========================
 
-function generateRoomCode() {
+function generateCode() {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     let code = "";
     for (let i = 0; i < 6; i++) {
@@ -60,60 +60,65 @@ function generateRoomCode() {
     return code;
 }
 
-function generatePlayerId() {
-    return "player_" + Math.random().toString(36).substring(2, 12);
+function generateId() {
+    return "p_" + Math.random().toString(36).substring(2, 10);
 }
 
 // =========================
 // TABULEIRO
 // =========================
 
-function createEmptyBoard() {
-    return Array.from({ length: BOARD_SIZE }, () =>
-        Array(BOARD_SIZE).fill(0)
+function emptyBoard() {
+    return Array.from({ length: SIZE }, () =>
+        Array(SIZE).fill(0)
     );
 }
 
-function placeShipsRandomly() {
-    const board = createEmptyBoard();
+function placeShips() {
+    const board = emptyBoard();
 
     for (const ship of SHIPS) {
-        let placed = false;
+        let ok = false;
 
-        while (!placed) {
-            const horizontal = Math.random() < 0.5;
-            const row = Math.floor(Math.random() * BOARD_SIZE);
-            const col = Math.floor(Math.random() * BOARD_SIZE);
+        while (!ok) {
+            const h = Math.random() < 0.5;
+            const r = Math.floor(Math.random() * SIZE);
+            const c = Math.floor(Math.random() * SIZE);
 
-            let ok = true;
+            let can = true;
 
             for (let i = 0; i < ship; i++) {
-                const r = horizontal ? row : row + i;
-                const c = horizontal ? col + i : col;
+                const rr = h ? r : r + i;
+                const cc = h ? c + i : c;
 
-                if (
-                    r >= BOARD_SIZE ||
-                    c >= BOARD_SIZE ||
-                    board[r][c] !== 0
-                ) {
-                    ok = false;
+                if (rr >= SIZE || cc >= SIZE || board[rr][cc]) {
+                    can = false;
                     break;
                 }
             }
 
-            if (!ok) continue;
+            if (!can) continue;
 
             for (let i = 0; i < ship; i++) {
-                const r = horizontal ? row : row + i;
-                const c = horizontal ? col + i : col;
-                board[r][c] = 1;
+                const rr = h ? r : r + i;
+                const cc = h ? c + i : c;
+                board[rr][cc] = 1;
             }
 
-            placed = true;
+            ok = true;
         }
     }
 
     return board;
+}
+
+// 🔥 FIX FIREBASE
+function toSave(board) {
+    return JSON.stringify(board);
+}
+
+function fromSave(data) {
+    return JSON.parse(data);
 }
 
 // =========================
@@ -124,30 +129,28 @@ function buildBoards() {
     playerBoardDiv.innerHTML = "";
     enemyBoardDiv.innerHTML = "";
 
-    for (let r = 0; r < BOARD_SIZE; r++) {
-        for (let c = 0; c < BOARD_SIZE; c++) {
+    for (let r = 0; r < SIZE; r++) {
+        for (let c = 0; c < SIZE; c++) {
 
             const p = document.createElement("div");
             p.className = "cell";
-            p.dataset.row = r;
-            p.dataset.col = c;
+            p.dataset.r = r;
+            p.dataset.c = c;
             playerBoardDiv.appendChild(p);
 
             const e = document.createElement("div");
             e.className = "cell";
-            e.dataset.row = r;
-            e.dataset.col = c;
             enemyBoardDiv.appendChild(e);
         }
     }
 }
 
-function renderMyBoard() {
+function renderPlayer() {
     const cells = playerBoardDiv.querySelectorAll(".cell");
 
     cells.forEach(cell => {
-        const r = +cell.dataset.row;
-        const c = +cell.dataset.col;
+        const r = +cell.dataset.r;
+        const c = +cell.dataset.c;
 
         cell.className = "cell";
 
@@ -158,7 +161,7 @@ function renderMyBoard() {
 }
 
 // =========================
-// START GAME
+// GAME START
 // =========================
 
 function startGame(room) {
@@ -166,14 +169,12 @@ function startGame(room) {
     if (gameStarted) return;
     gameStarted = true;
 
-    console.log("JOGO INICIADO");
-
     homeScreen.classList.add("hidden");
     roomScreen.classList.add("hidden");
     gameScreen.classList.remove("hidden");
 
     buildBoards();
-    renderMyBoard();
+    renderPlayer();
     updateTurn(room);
 }
 
@@ -183,7 +184,7 @@ function updateTurn(room) {
     if (room.currentTurn === playerRole) {
         turnText.textContent = "Sua vez 🎯";
     } else {
-        turnText.textContent = "Aguardando adversário...";
+        turnText.textContent = "Aguardando...";
     }
 }
 
@@ -191,13 +192,13 @@ function updateTurn(room) {
 // CREATE ROOM
 // =========================
 
-btnCreateRoom.addEventListener("click", async () => {
+btnCreateRoom.onclick = async () => {
 
-    roomId = generateRoomCode();
-    playerId = generatePlayerId();
+    roomId = generateCode();
+    playerId = generateId();
     playerRole = "player1";
 
-    myBoard = placeShipsRandomly();
+    myBoard = placeShips();
 
     await setDoc(doc(db, "rooms", roomId), {
         status: "waiting",
@@ -207,19 +208,19 @@ btnCreateRoom.addEventListener("click", async () => {
             player2: null
         },
         boards: {
-            player1: myBoard,
+            player1: toSave(myBoard),
             player2: null
         }
     });
 
     enterRoom(roomId);
-});
+};
 
 // =========================
 // JOIN ROOM
 // =========================
 
-btnJoinRoom.addEventListener("click", async () => {
+btnJoinRoom.onclick = async () => {
 
     const code = roomCodeInput.value.trim().toUpperCase();
     if (!code) return;
@@ -228,7 +229,7 @@ btnJoinRoom.addEventListener("click", async () => {
     const snap = await getDoc(ref);
 
     if (!snap.exists()) {
-        alert("Sala não encontrada");
+        alert("Sala não existe");
         return;
     }
 
@@ -240,23 +241,19 @@ btnJoinRoom.addEventListener("click", async () => {
     }
 
     roomId = code;
-    playerId = generatePlayerId();
+    playerId = generateId();
     playerRole = "player2";
 
-    myBoard = placeShipsRandomly();
+    myBoard = placeShips();
 
-    // 🔥 CORREÇÃO IMPORTANTE
     await updateDoc(ref, {
         "players.player2": playerId,
-        "boards.player2": myBoard
-    });
-
-    await updateDoc(ref, {
+        "boards.player2": toSave(myBoard),
         status: "playing"
     });
 
     enterRoom(roomId);
-});
+};
 
 // =========================
 // ENTER ROOM
@@ -271,13 +268,11 @@ function enterRoom(code) {
 
     roomIdLabel.textContent = roomId;
 
-    const link =
+    roomLinkInput.value =
         window.location.origin +
         window.location.pathname +
         "?sala=" +
         roomId;
-
-    roomLinkInput.value = link;
 
     listenRoom();
 }
@@ -286,31 +281,31 @@ function enterRoom(code) {
 // COPY LINK
 // =========================
 
-btnCopyLink.addEventListener("click", () => {
+btnCopyLink.onclick = () => {
     navigator.clipboard.writeText(roomLinkInput.value);
-    alert("Link copiado!");
-});
+};
 
 // =========================
-// LISTENER FIREBASE
+// FIREBASE LISTENER
 // =========================
 
 function listenRoom() {
 
     const ref = doc(db, "rooms", roomId);
 
-    onSnapshot(ref, (snap) => {
+    onSnapshot(ref, snap => {
 
         if (!snap.exists()) return;
 
         const room = snap.data();
 
-        let players = 1;
-        if (room.players.player2) players = 2;
-
-        playerCountLabel.textContent = players + "/2";
+        let count = room.players.player2 ? 2 : 1;
+        playerCountLabel.textContent = count + "/2";
 
         if (room.status === "playing") {
+
+            myBoard = fromSave(room.boards[playerRole]);
+
             startGame(room);
         }
 
@@ -325,6 +320,6 @@ const params = new URLSearchParams(window.location.search);
 const sala = params.get("sala");
 
 if (sala) {
-    roomCodeInput.value = sala.toUpperCase();
+    roomCodeInput.value = sala;
     btnJoinRoom.click();
 }
