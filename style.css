@@ -410,4 +410,24 @@ footer{
         flex-direction:column;
     }
 
+   .cell {
+    width: 30px;
+    height: 30px;
+    border: 1px solid #ccc;
+    display: inline-block;
+    cursor: pointer;
+}
+
+.ship {
+    background: gray;
+}
+
+.hit {
+    background: red;
+}
+
+.miss {
+    background: blue;
+}
+
 }
