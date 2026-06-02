@@ -103,7 +103,7 @@ function placeShips(board) {
 }
 
 // =========================
-// RENDER TABULEIRO
+// RENDER
 // =========================
 function buildBoards() {
     playerBoardDiv.innerHTML = "";
@@ -199,9 +199,11 @@ btnJoinRoom.addEventListener("click", async () => {
 
     myBoard = placeShips(createBoard());
 
+    // 🔥 IMPORTANTE: NÃO iniciar jogo aqui
     await updateDoc(ref, {
         "players.player2": playerId,
-        "boards.player2": JSON.stringify(myBoard)
+        "boards.player2": JSON.stringify(myBoard),
+        status: "waiting"
     });
 
     enterRoom();
@@ -246,7 +248,7 @@ function listenRoom() {
         const players = data.players.player2 ? 2 : 1;
         playerCountLabel.textContent = players + "/2";
 
-        // 🔥 START AUTOMÁTICO DO JOGO
+        // 🔥 START AUTOMÁTICO (CORRETO)
         if (
             data.players.player1 &&
             data.players.player2 &&
@@ -272,7 +274,7 @@ function listenRoom() {
                         ? "Sua vez"
                         : "Vez do inimigo";
 
-            }, 800);
+            }, 600);
         }
     });
 }
