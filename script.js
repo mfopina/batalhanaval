@@ -23,6 +23,7 @@ const roomCodeInput = document.getElementById("roomCode");
 const roomIdLabel = document.getElementById("roomId");
 const playerCountLabel = document.getElementById("playerCount");
 const roomLinkInput = document.getElementById("roomLink");
+
 const waitingMessage = document.getElementById("waitingMessage");
 
 const playerBoardDiv = document.getElementById("playerBoard");
@@ -35,7 +36,6 @@ const turnText = document.getElementById("turnText");
 let roomId = null;
 let playerId = null;
 let playerRole = null;
-
 let myBoard = [];
 
 // =========================
@@ -157,14 +157,20 @@ btnCreateRoom.addEventListener("click", async () => {
     await setDoc(doc(db, "rooms", roomId), {
         status: "waiting",
         currentTurn: "player1",
+
         players: {
             player1: playerId,
             player2: null
         },
+
         boards: {
             player1: JSON.stringify(myBoard),
             player2: null
-        }
+        },
+
+        moves: [],
+        hits: { player1: 0, player2: 0 },
+        misses: { player1: 0, player2: 0 }
     });
 
     enterRoom();
@@ -199,7 +205,6 @@ btnJoinRoom.addEventListener("click", async () => {
 
     myBoard = placeShips(createBoard());
 
-    // 🔥 IMPORTANTE: NÃO iniciar jogo aqui
     await updateDoc(ref, {
         "players.player2": playerId,
         "boards.player2": JSON.stringify(myBoard),
@@ -210,7 +215,7 @@ btnJoinRoom.addEventListener("click", async () => {
 });
 
 // =========================
-// ENTRAR SALA (UI)
+// ENTRAR SALA UI
 // =========================
 function enterRoom() {
 
@@ -241,14 +246,11 @@ function listenRoom() {
 
     onSnapshot(ref, async (snap) => {
 
-        if (!snap.exists()) return;
-
         const data = snap.data();
 
         const players = data.players.player2 ? 2 : 1;
         playerCountLabel.textContent = players + "/2";
 
-        // 🔥 START AUTOMÁTICO (CORRETO)
         if (
             data.players.player1 &&
             data.players.player2 &&
@@ -260,24 +262,64 @@ function listenRoom() {
             });
         }
 
-        // 🔥 ENTRAR NO JOGO
         if (data.status === "playing") {
 
             waitingMessage.innerText = "Jogador conectado!";
 
-            setTimeout(() => {
-                roomScreen.classList.add("hidden");
-                gameScreen.classList.remove("hidden");
+            roomScreen.classList.add("hidden");
+            gameScreen.classList.remove("hidden");
 
-                turnText.innerText =
-                    data.currentTurn === playerRole
-                        ? "Sua vez"
-                        : "Vez do inimigo";
-
-            }, 600);
+            turnText.innerText =
+                data.currentTurn === playerRole
+                    ? "Sua vez"
+                    : "Vez do inimigo";
         }
     });
 }
+
+// =========================
+// TIROS (PARTE C)
+// =========================
+enemyBoardDiv.addEventListener("click", async (e) => {
+
+    const cell = e.target;
+    if (!cell.classList.contains("cell")) return;
+
+    const r = Number(cell.dataset.r);
+    const c = Number(cell.dataset.c);
+
+    const ref = doc(db, "rooms", roomId);
+    const snap = await getDoc(ref);
+    const data = snap.data();
+
+    if (data.currentTurn !== playerRole) return;
+
+    const key = `${r}-${c}`;
+    if (data.moves.includes(key)) return;
+
+    const enemyBoard =
+        playerRole === "player1"
+            ? JSON.parse(data.boards.player2)
+            : JSON.parse(data.boards.player1);
+
+    const hit = enemyBoard[r][c] === 1;
+
+    await updateDoc(ref, {
+        moves: [...data.moves, key],
+
+        ...(hit
+            ? { [`hits.${playerRole}`]: data.hits[playerRole] + 1 }
+            : { [`misses.${playerRole}`]: data.misses[playerRole] + 1 }
+        ),
+
+        currentTurn:
+            playerRole === "player1"
+                ? "player2"
+                : "player1"
+    });
+
+    cell.classList.add(hit ? "hit" : "miss");
+});
 
 // =========================
 // LINK AUTO JOIN
